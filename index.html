@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FinAudit Pro — GAAP Financial Statement Analyzer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Source+Code+Pro:wght@300;400;500&family=Nunito+Sans:wght@300;400;600;700&display=swap');
+
+:root {
+  --ink:       #0f1923;
+  --ink2:      #1b2a3b;
+  --slate:     #243447;
+  --panel:     #f8f6f1;
+  --cream:     #fdfbf7;
+  --border:    #ddd8ce;
+  --gold:      #b08d3c;
+  --gold-lt:   #d4a84b;
+  --gold-pale: #f5edd8;
+  --teal:      #1a6b74;
+  --red:       #8b1f1f;
+  --green:     #1a5c3a;
+  --amber:     #7a5000;
+  --muted:     #7a7060;
+  --shadow-sm: 0 1px 6px rgba(15,25,35,.07);
+  --shadow-md: 0 4px 20px rgba(15,25,35,.1);
+  --shadow-lg: 0 8px 40px rgba(15,25,35,.14);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Nunito Sans', sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+  min-height: 100vh;
+}
+
+/* ── TOPBAR ─────────────────────────────────────────── */
+.topbar {
+  background: var(--ink);
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: 64px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 12px rgba(0,0,0,.3);
+}
+.topbar-seal {
+  width: 38px; height: 38px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--gold), #7a5f1a);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.topbar-brand h1 {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 19px; font-weight: 700;
+  color: #fff; letter-spacing: .3px;
+}
+.topbar-brand p {
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px; color: rgba(212,168,75,.55);
+  letter-spacing: 2.5px; text-transform: uppercase; margin-top: 2px;
+}
+.topbar-pills {
+  display: flex; gap: 6px; margin-left: auto;
+}
+.topbar-pill {
+  padding: 3px 10px;
+  border: 1px solid rgba(212,168,75,.22);
+  border-radius: 3px;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px; color: rgba(212,168,75,.5);
+  letter-spacing: 1.5px;
+}
+
+/* ── LAYOUT ─────────────────────────────────────────── */
+.layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  min-height: calc(100vh - 64px);
+}
+
+/* ── SIDEBAR ────────────────────────────────────────── */
+.sidebar {
+  background: var(--ink2);
+  padding: 24px 20px 32px;
+  border-right: 1px solid rgba(255,255,255,.05);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  overflow-y: auto;
+}
+.s-block {}
+.s-title {
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px; letter-spacing: 2.5px;
+  color: rgba(212,168,75,.45);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+/* API KEY */
+.api-row { position: relative; }
+.api-input {
+  width: 100%; padding: 10px 40px 10px 12px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 7px; color: #fff;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 11px; outline: none;
+  transition: border .2s;
+}
+.api-input:focus { border-color: var(--gold-lt); }
+.api-input::placeholder { color: rgba(255,255,255,.18); }
+.api-eye {
+  position: absolute; right: 10px; top: 50%;
+  transform: translateY(-50%);
+  background: none; border: none; color: rgba(255,255,255,.3);
+  cursor: pointer; font-size: 15px;
+}
+.api-hint {
+  font-size: 10px; color: rgba(255,255,255,.2);
+  margin-top: 6px; line-height: 1.5;
+}
+.api-hint a { color: rgba(212,168,75,.5); text-decoration: none; }
+
+/* DROP ZONE */
+.dropzone {
+  border: 2px dashed rgba(212,168,75,.22);
+  border-radius: 10px;
+  padding: 26px 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .2s;
+  background: rgba(255,255,255,.02);
+  position: relative;
+}
+.dropzone:hover, .dropzone.dragover {
+  border-color: var(--gold-lt);
+  background: rgba(212,168,75,.05);
+}
+.dropzone input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.dz-icon { font-size: 34px; margin-bottom: 8px; }
+.dz-text { font-size: 12px; color: rgba(255,255,255,.35); line-height: 1.6; }
+.dz-formats {
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px; color: rgba(212,168,75,.3);
+  letter-spacing: 1px; margin-top: 6px;
+}
+
+/* FILE CHIP */
+.file-chip {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(212,168,75,.09);
+  border: 1px solid rgba(212,168,75,.2);
+  border-radius: 8px; padding: 10px 12px;
+}
+.fc-ico { font-size: 20px; }
+.fc-info { flex: 1; overflow: hidden; }
+.fc-name {
+  font-size: 11px; color: #e8dfc8;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 600;
+}
+.fc-meta {
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px; color: rgba(212,168,75,.35); margin-top: 2px;
+}
+.fc-remove {
+  background: none; border: none; color: rgba(212,168,75,.3);
+  cursor: pointer; font-size: 16px; padding: 2px 4px;
+  transition: color .2s;
+}
+.fc-remove:hover { color: var(--gold-lt); }
+
+/* URL INPUT */
+.url-row { display: flex; gap: 6px; }
+.url-input {
+  flex: 1; padding: 10px 12px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 7px; color: #fff;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 11px; outline: none; transition: border .2s;
+}
+.url-input:focus { border-color: var(--gold-lt); }
+.url-input::placeholder { color: rgba(255,255,255,.18); }
+.url-btn {
+  padding: 10px 14px;
+  background: rgba(212,168,75,.15);
+  border: 1px solid rgba(212,168,75,.25);
+  border-radius: 7px; color: var(--gold-lt);
+  font-size: 13px; cursor: pointer; transition: all .2s;
+}
+.url-btn:hover { background: rgba(212,168,75,.25); }
+
+/* FILING TYPE */
+.filing-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+}
+.ft-btn {
+  padding: 8px 4px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 6px; background: transparent;
+  color: rgba(255,255,255,.35);
+  font-family: 'Source Code Pro', monospace;
+  font-size: 10px; letter-spacing: .5px;
+  cursor: pointer; transition: all .2s; text-align: center;
+}
+.ft-btn:hover { border-color: rgba(212,168,75,.3); color: rgba(255,255,255,.6); }
+.ft-btn.active {
+  border-color: var(--gold-lt);
+  background: rgba(212,168,75,.1);
+  color: #e8dfc8;
+}
+.ft-btn span { display: block; font-size: 15px; margin-bottom: 3px; }
+
+/* META INPUTS */
+.meta-input {
+  width: 100%; padding: 9px 12px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 7px; color: #fff;
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: 12px; outline: none; transition: border .2s;
+  margin-top: 7px;
+}
+.meta-input:first-child { margin-top: 0; }
+.meta-input:focus { border-color: var(--gold-lt); }
+.meta-input::placeholder { color: rgba(255,255,255,.2); }
+.meta-textarea { resize: vertical; min-height: 72px; line-height: 1.5; }
+
+/* FRAMEWORK TOGGLE */
+.fw-toggle { display: flex; gap: 6px; }
+.fw-btn {
+  flex: 1; padding: 8px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 7px; background: transparent;
+  color: rgba(255,255,255,.35);
+  font-family: 'Source Code Pro', monospace;
+  font-size: 10px; letter-spacing: 1px;
+  cursor: pointer; transition: all .2s;
+}
+.fw-btn.active {
+  border-color: var(--teal);
+  background: rgba(26,107,116,.15);
+  color: #7dd3d8;
+}
+
+/* RUN BUTTON */
+.run-btn {
+  width: 100%; padding: 15px;
+  border: none; border-radius: 9px;
+  background: linear-gradient(135deg, var(--gold-lt) 0%, #8b6914 100%);
+  color: var(--ink); font-family: 'Libre Baskerville', serif;
+  font-size: 16px; font-weight: 700;
+  cursor: pointer; transition: all .2s;
+  box-shadow: 0 4px 18px rgba(176,141,60,.25);
+  letter-spacing: .3px;
+}
+.run-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 26px rgba(176,141,60,.38);
+}
+.run-btn:disabled { opacity: .38; cursor: not-allowed; transform: none; }
+.run-sub {
+  display: block;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px; letter-spacing: 2px;
+  opacity: .65; margin-top: 3px;
+}
+
+.err-box {
+  background: rgba(139,31,31,.15);
+  border: 1px solid rgba(139,31,31,.35);
+  border-radius: 7px; padding: 10px 13px;
+  font-size: 12px; color: #f9a8a8;
+  line-height: 1.5;
+}
+
+/* ── MAIN CONTENT ───────────────────────────────────── */
+.main { padding: 32px 36px; overflow-y: auto; }
+
+/* WELCOME STATE */
+.welcome {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: 70vh; text-align: center;
+}
+.w-emblem { font-size: 68px; margin-bottom: 20px; filter: drop-shadow(0 6px 20px rgba(176,141,60,.2)); }
+.w-title {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 30px; font-weight: 700; color: var(--ink);
+  margin-bottom: 10px;
+}
+.w-sub {
+  font-size: 14px; color: var(--muted);
+  max-width: 430px; line-height: 1.75; margin-bottom: 32px;
+}
+.w-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px; max-width: 580px; width: 100%;
+}
+.w-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 9px; padding: 16px 14px;
+  text-align: left;
+}
+.w-card-ico { font-size: 22px; margin-bottom: 7px; }
+.w-card-title { font-size: 12px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+.w-card-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+/* LOADING STATE */
+.loading-state {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: 60vh; gap: 22px;
+}
+.spinner {
+  width: 52px; height: 52px;
+  border: 3px solid var(--border);
+  border-top-color: var(--gold-lt);
+  border-radius: 50%;
+  animation: spin .85s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-msg {
+  font-family: 'Source Code Pro', monospace;
+  font-size: 12px; color: var(--muted); letter-spacing: 1px;
+}
+.loading-sub { font-size: 11px; color: var(--border); }
+
+/* ── REPORT ─────────────────────────────────────────── */
+.report { animation: fadeUp .45s ease; }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.report-banner {
+  background: var(--ink);
+  border-radius: 10px;
+  padding: 18px 24px;
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 22px;
+}
+.rb-seal { font-size: 30px; }
+.rb-info h2 {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 18px; font-weight: 700; color: #f0e8d5;
+}
+.rb-info p {
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px; color: rgba(212,168,75,.45);
+  letter-spacing: 2px; margin-top: 3px;
+}
+.rb-badge {
+  margin-left: auto; padding: 5px 14px;
+  border: 1px solid rgba(212,168,75,.25);
+  border-radius: 4px;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px; color: rgba(212,168,75,.55);
+  letter-spacing: 2px;
+}
+
+/* SCORE CARDS ROW */
+.score-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 22px;
+}
+.score-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 9px; padding: 14px;
+  text-align: center;
+}
+.score-card .sc-label {
+  font-size: 10px; color: var(--muted);
+  font-weight: 600; letter-spacing: .5px;
+  margin-bottom: 6px;
+}
+.score-card .sc-val {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 22px; font-weight: 700; color: var(--ink);
+}
+.score-card .sc-sub {
+  font-size: 10px; color: var(--muted); margin-top: 3px;
+}
+.score-card.green { border-top: 3px solid #1a5c3a; }
+.score-card.amber { border-top: 3px solid #d4a020; }
+.score-card.red   { border-top: 3px solid #8b1f1f; }
+
+/* REPORT SECTIONS */
+.rep-section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.rep-sec-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: #fff;
+  cursor: pointer;
+  user-select: none;
+}
+.rep-sec-head:hover { background: var(--gold-pale); }
+.rep-sec-num {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--ink); color: var(--gold-lt);
+  font-family: 'Source Code Pro', monospace;
+  font-size: 11px; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.rep-sec-title {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 14px; font-weight: 700; color: var(--ink);
+  flex: 1;
+}
+.rep-sec-arrow { font-size: 12px; color: var(--muted); transition: transform .2s; }
+.rep-sec-arrow.open { transform: rotate(180deg); }
+.rep-sec-body {
+  padding: 18px 20px;
+  font-size: 13.5px; line-height: 1.8; color: var(--ink);
+  display: none;
+}
+.rep-sec-body.visible { display: block; }
+.rep-sec-body p { margin-bottom: 10px; }
+.rep-sec-body p:last-child { margin-bottom: 0; }
+.rep-sec-body strong { color: var(--ink2); font-weight: 700; }
+.rep-sec-body ul, .rep-sec-body ol {
+  padding-left: 20px; margin: 8px 0;
+}
+.rep-sec-body li { margin-bottom: 5px; }
+
+/* RISK BADGES */
+.badge-critical {
+  display: inline-block;
+  background: #fee2e2; color: #991b1b;
+  padding: 2px 9px; border-radius: 4px;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 10px; font-weight: 600; vertical-align: middle;
+}
+.badge-significant {
+  display: inline-block;
+  background: #fef3c7; color: #92400e;
+  padding: 2px 9px; border-radius: 4px;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 10px; font-weight: 600; vertical-align: middle;
+}
+.badge-low {
+  display: inline-block;
+  background: #dcfce7; color: #166534;
+  padding: 2px 9px; border-radius: 4px;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 10px; font-weight: 600; vertical-align: middle;
+}
+.badge-strong { background: #dcfce7; color: #166534; display: inline-block; padding: 2px 9px; border-radius: 4px; font-family: 'Source Code Pro', monospace; font-size: 10px; font-weight: 600; vertical-align: middle; }
+.badge-moderate { background: #fef3c7; color: #92400e; display: inline-block; padding: 2px 9px; border-radius: 4px; font-family: 'Source Code Pro', monospace; font-size: 10px; font-weight: 600; vertical-align: middle; }
+.badge-concern { background: #fee2e2; color: #991b1b; display: inline-block; padding: 2px 9px; border-radius: 4px; font-family: 'Source Code Pro', monospace; font-size: 10px; font-weight: 600; vertical-align: middle; }
+
+.opinion-clean { display: inline-block; background: #dcfce7; color: #166534; padding: 4px 14px; border-radius: 6px; font-weight: 700; font-size: 14px; }
+.opinion-qualified { display: inline-block; background: #fef9c3; color: #854d0e; padding: 4px 14px; border-radius: 6px; font-weight: 700; font-size: 14px; }
+.opinion-adverse { display: inline-block; background: #fee2e2; color: #991b1b; padding: 4px 14px; border-radius: 6px; font-weight: 700; font-size: 14px; }
+.opinion-disclaimer { display: inline-block; background: #f3f4f6; color: #374151; padding: 4px 14px; border-radius: 6px; font-weight: 700; font-size: 14px; }
+
+/* RATIO TABLE */
+.ratio-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 12.5px;
+}
+.ratio-table th {
+  background: var(--ink);
+  color: var(--gold-lt);
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px; letter-spacing: 2px;
+  padding: 8px 12px; text-align: left;
+  font-weight: 500;
+}
+.ratio-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.ratio-table tr:nth-child(even) td { background: #f9f7f2; }
+.ratio-table tr:last-child td { border-bottom: none; }
+.ratio-name { font-weight: 600; color: var(--ink); }
+.ratio-val { font-family: 'Source Code Pro', monospace; color: var(--teal); font-weight: 500; }
+
+/* PRINT / EXPORT BTN */
+.actions-row {
+  display: flex; gap: 10px; margin-bottom: 20px;
+}
+.action-btn {
+  padding: 9px 20px;
+  border-radius: 7px; border: 1px solid var(--border);
+  background: var(--panel); color: var(--ink);
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all .2s;
+  display: flex; align-items: center; gap: 6px;
+}
+.action-btn:hover { background: var(--gold-pale); border-color: var(--gold); }
+.action-btn.primary {
+  background: var(--ink); color: var(--gold-lt);
+  border-color: var(--ink);
+}
+.action-btn.primary:hover { background: var(--ink2); }
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { border-right: none; border-bottom: 1px solid rgba(255,255,255,.06); }
+  .main { padding: 20px 16px; }
+  .score-row { grid-template-columns: 1fr 1fr; }
+  .w-grid { grid-template-columns: 1fr 1fr; }
+  .topbar-pills { display: none; }
+}
+
+/* PRINT */
+@media print {
+  .topbar, .sidebar { display: none !important; }
+  .layout { grid-template-columns: 1fr; }
+  .main { padding: 0; }
+  .rep-sec-body { display: block !important; }
+  .actions-row { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-seal">⚖️</div>
+  <div class="topbar-brand">
+    <h1>FinAudit Pro</h1>
+    <p>GAAP · SEC · PCAOB · Financial Intelligence</p>
+  </div>
+  <div class="topbar-pills">
+    <div class="topbar-pill">10-K</div>
+    <div class="topbar-pill">10-Q</div>
+    <div class="topbar-pill">8-K</div>
+    <div class="topbar-pill">ASC 606</div>
+    <div class="topbar-pill">PCAOB</div>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- ── SIDEBAR ──────────────────────────────────────── -->
+  <div class="sidebar">
+
+    <!-- API KEY -->
+    <div class="s-block">
+      <div class="s-title">🔑 Anthropic API Key</div>
+      <div class="api-row">
+        <input class="api-input" id="apiKey" type="password" placeholder="sk-ant-api03-…"/>
+        <button class="api-eye" onclick="toggleKey()">👁</button>
+      </div>
+      <div class="api-hint">
+        Free to get at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>.<br/>
+        Your key stays in your browser only.
+      </div>
+    </div>
+
+    <!-- FILE UPLOAD -->
+    <div class="s-block">
+      <div class="s-title">📎 Upload Document</div>
+      <div class="dropzone" id="dropzone" ondragover="dzDrag(event)" ondragleave="dzLeave()" ondrop="dzDrop(event)">
+        <input type="file" id="fileInput" accept=".pdf,.txt,.csv,.xlsx,.xls,.docx,.htm,.html"
+               onchange="handleFile(this.files[0])"/>
+        <div class="dz-icon">📄</div>
+        <div class="dz-text">Drop your file here<br/>or click to browse</div>
+        <div class="dz-formats">PDF · TXT · CSV · XLSX · DOCX · HTML</div>
+      </div>
+      <div id="fileChip" style="display:none; margin-top:8px;"></div>
+    </div>
+
+    <!-- WEB URL -->
+    <div class="s-block">
+      <div class="s-title">🌐 Or Load from URL</div>
+      <div class="url-row">
+        <input class="url-input" id="urlInput" placeholder="https://sec.gov/…/10-k.htm" />
+        <button class="url-btn" onclick="loadUrl()" title="Fetch URL">⬇</button>
+      </div>
+      <div class="api-hint" style="margin-top:6px;">Works with SEC EDGAR links, investor relations pages, etc.</div>
+    </div>
+
+    <!-- FILING TYPE -->
+    <div class="s-block">
+      <div class="s-title">📋 Filing Type</div>
+      <div class="filing-grid">
+        <button class="ft-btn active" onclick="setFiling(this,'10-K')"><span>📋</span>10-K</button>
+        <button class="ft-btn" onclick="setFiling(this,'10-Q')"><span>📊</span>10-Q</button>
+        <button class="ft-btn" onclick="setFiling(this,'8-K')"><span>⚡</span>8-K</button>
+        <button class="ft-btn" onclick="setFiling(this,'DEF 14A')"><span>🗳️</span>DEF 14A</button>
+        <button class="ft-btn" onclick="setFiling(this,'Annual')"><span>🏢</span>Annual</button>
+        <button class="ft-btn" onclick="setFiling(this,'Other')"><span>📁</span>Other</button>
+      </div>
+    </div>
+
+    <!-- FRAMEWORK -->
+    <div class="s-block">
+      <div class="s-title">⚖️ Accounting Framework</div>
+      <div class="fw-toggle">
+        <button class="fw-btn active" onclick="setFw(this,'GAAP')">US GAAP</button>
+        <button class="fw-btn" onclick="setFw(this,'IFRS')">IFRS</button>
+        <button class="fw-btn" onclick="setFw(this,'BOTH')">BOTH</button>
+      </div>
+    </div>
+
+    <!-- COMPANY META -->
+    <div class="s-block">
+      <div class="s-title">🏢 Company Details (Optional)</div>
+      <input class="meta-input" id="company" placeholder="Company name e.g. Apple Inc."/>
+      <input class="meta-input" id="period" placeholder="Period e.g. FY 2024, Q3 2024"/>
+    </div>
+
+    <!-- FOCUS AREAS -->
+    <div class="s-block">
+      <div class="s-title">🔍 Specific Audit Focus</div>
+      <textarea class="meta-input meta-textarea" id="focus"
+        placeholder="e.g. Revenue recognition, goodwill impairment, debt covenants, going concern, related-party transactions…"></textarea>
+    </div>
+
+    <!-- RUN -->
+    <button class="run-btn" id="runBtn" onclick="runAnalysis()" disabled>
+      ⚖️ Run Audit Analysis
+      <span class="run-sub">GAAP · PCAOB STANDARDS</span>
+    </button>
+
+    <div id="errBox" class="err-box" style="display:none;"></div>
+
+  </div><!-- /sidebar -->
+
+  <!-- ── MAIN ─────────────────────────────────────────── -->
+  <div class="main" id="mainContent">
+
+    <!-- WELCOME -->
+    <div class="welcome" id="welcomeState">
+      <div class="w-emblem">🏛️</div>
+      <div class="w-title">Professional Audit Intelligence</div>
+      <div class="w-sub">
+        Upload a 10-K, 10-Q, 8-K, Annual Report or paste an SEC EDGAR link.
+        Receive a fully structured GAAP audit report with scores, risk ratings, financial ratios, and a formal auditor's opinion.
+      </div>
+      <div class="w-grid">
+        <div class="w-card">
+          <div class="w-card-ico">📊</div>
+          <div class="w-card-title">Financial Ratios</div>
+          <div class="w-card-desc">Liquidity, solvency, profitability, Altman Z-Score, Beneish M-Score</div>
+        </div>
+        <div class="w-card">
+          <div class="w-card-ico">⚠️</div>
+          <div class="w-card-title">Risk Assessment</div>
+          <div class="w-card-desc">Fraud indicators, going concern, material misstatement risk</div>
+        </div>
+        <div class="w-card">
+          <div class="w-card-ico">📋</div>
+          <div class="w-card-title">Formal Opinion</div>
+          <div class="w-card-desc">Unqualified, qualified, adverse or disclaimer with full reasoning</div>
+        </div>
+        <div class="w-card">
+          <div class="w-card-ico">🔍</div>
+          <div class="w-card-title">ASC 606 Review</div>
+          <div class="w-card-desc">Revenue recognition 5-step model compliance</div>
+        </div>
+        <div class="w-card">
+          <div class="w-card-ico">📝</div>
+          <div class="w-card-title">Mgmt Letter</div>
+          <div class="w-card-desc">Prioritized recommendations for management</div>
+        </div>
+        <div class="w-card">
+          <div class="w-card-ico">🌐</div>
+          <div class="w-card-title">Web Links</div>
+          <div class="w-card-desc">Paste any SEC EDGAR or investor-relations URL</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOADING -->
+    <div class="loading-state" id="loadingState" style="display:none;">
+      <div class="spinner"></div>
+      <div class="loading-msg" id="loadingMsg">Reading document…</div>
+      <div class="loading-sub">Applying GAAP standards · PCAOB audit procedures</div>
+    </div>
+
+    <!-- REPORT -->
+    <div id="reportState" style="display:none;"></div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<script>
+// ── STATE ──────────────────────────────────────────────
+let documentText = '';
+let filingType   = '10-K';
+let framework    = 'GAAP';
+let currentFile  = null;
+
+// ── API KEY TOGGLE ─────────────────────────────────────
+function toggleKey() {
+  const el = document.getElementById('apiKey');
+  el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+// ── FILING / FRAMEWORK ────────────────────────────────
+function setFiling(btn, val) {
+  document.querySelectorAll('.ft-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filingType = val;
+}
+function setFw(btn, val) {
+  document.querySelectorAll('.fw-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  framework = val;
+}
+
+// ── DRAG & DROP ────────────────────────────────────────
+function dzDrag(e) { e.preventDefault(); document.getElementById('dropzone').classList.add('dragover'); }
+function dzLeave()  { document.getElementById('dropzone').classList.remove('dragover'); }
+function dzDrop(e)  { e.preventDefault(); dzLeave(); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }
+
+// ── FILE HANDLER ───────────────────────────────────────
+async function handleFile(file) {
+  if (!file) return;
+  currentFile = file;
+  showFileChip(file);
+  setMsg('Reading ' + file.name + '…');
+
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    if (ext === 'pdf') {
+      documentText = await readPDF(file);
+    } else if (['xlsx','xls'].includes(ext)) {
+      documentText = await readExcel(file);
+    } else if (ext === 'docx') {
+      documentText = await readDocx(file);
+    } else {
+      // txt, csv, html, htm
+      documentText = await file.text();
+    }
+
+    documentText = documentText.slice(0, 80000); // limit tokens
+    enableRun();
+    setMsg('');
+  } catch(err) {
+    showErr('Failed to read file: ' + err.message);
+  }
+}
+
+// Read PDF via FileReader + text extraction
+async function readPDF(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+      try {
+        // Use PDF.js from CDN if available, else fall back to raw text
+        if (window.pdfjsLib) {
+          const pdf = await window.pdfjsLib.getDocument({ data: e.target.result }).promise;
+          let text = '';
+          for (let i = 1; i <= Math.min(pdf.numPages, 80); i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            text += content.items.map(item => item.str).join(' ') + '\n';
+          }
+          resolve(text);
+        } else {
+          // Fallback: treat as binary, extract readable strings
+          const arr = new Uint8Array(e.target.result);
+          let text = '';
+          for (let i = 0; i < arr.length; i++) {
+            const c = arr[i];
+            if (c >= 32 && c < 127) text += String.fromCharCode(c);
+            else if (c === 10 || c === 13) text += '\n';
+          }
+          // Extract text between BT and ET markers (basic PDF text)
+          const chunks = text.match(/\(([^)]{2,200})\)/g) || [];
+          resolve(chunks.map(c => c.slice(1,-1)).join(' '));
+        }
+      } catch(err) { reject(err); }
+    };
+    reader.onerror = () => reject(new Error('FileReader error'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// Read Excel
+async function readExcel(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        let text = '';
+        wb.SheetNames.forEach(name => {
+          text += '=== Sheet: ' + name + ' ===\n';
+          text += XLSX.utils.sheet_to_csv(wb.Sheets[name]) + '\n\n';
+        });
+        resolve(text);
+      } catch(err) { reject(err); }
+    };
+    reader.onerror = () => reject(new Error('FileReader error'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// Read DOCX
+async function readDocx(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      mammoth.extractRawText({ arrayBuffer: e.target.result })
+        .then(result => resolve(result.value))
+        .catch(reject);
+    };
+    reader.onerror = () => reject(new Error('FileReader error'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ── URL LOADER ─────────────────────────────────────────
+async function loadUrl() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) return;
+  showErr(''); setMsg('Fetching URL…');
+
+  try {
+    // Use a CORS proxy for SEC EDGAR
+    const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
+    const resp = await fetch(proxyUrl);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    const html = data.contents || '';
+    // Strip HTML tags
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    documentText = (tmp.innerText || tmp.textContent || '').slice(0, 80000);
+    if (!documentText.trim()) throw new Error('No readable content found at URL.');
+    showFileChip({ name: url.split('/').pop() || 'web-document', size: documentText.length });
+    enableRun();
+    setMsg('');
+  } catch(err) {
+    showErr('URL load failed: ' + err.message + '. Try downloading the file and uploading it directly.');
+    setMsg('');
+  }
+}
+
+// ── HELPERS ────────────────────────────────────────────
+function showFileChip(file) {
+  const chip = document.getElementById('fileChip');
+  const size = typeof file.size === 'number'
+    ? (file.size > 1048576 ? (file.size/1048576).toFixed(1)+' MB' : Math.round(file.size/1024)+' KB')
+    : 'web';
+  chip.style.display = 'flex';
+  chip.className = 'file-chip';
+  chip.innerHTML = `
+    <div class="fc-ico">${file.name?.endsWith('.pdf') ? '📕' : '📄'}</div>
+    <div class="fc-info">
+      <div class="fc-name">${escHtml(file.name||'document')}</div>
+      <div class="fc-meta">${size}</div>
+    </div>
+    <button class="fc-remove" onclick="clearFile()">✕</button>`;
+}
+function clearFile() {
+  currentFile = null; documentText = '';
+  document.getElementById('fileChip').style.display = 'none';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('urlInput').value = '';
+  document.getElementById('runBtn').disabled = true;
+  showState('welcome');
+}
+function enableRun() { document.getElementById('runBtn').disabled = false; }
+function setMsg(m)    { document.getElementById('loadingMsg').textContent = m; }
+function showErr(m)   {
+  const b = document.getElementById('errBox');
+  b.style.display = m ? 'block' : 'none';
+  b.textContent = m;
+}
+function escHtml(s)   { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function showState(s) {
+  document.getElementById('welcomeState').style.display  = s==='welcome'  ? 'flex' : 'none';
+  document.getElementById('loadingState').style.display  = s==='loading'  ? 'flex' : 'none';
+  document.getElementById('reportState').style.display   = s==='report'   ? 'block': 'none';
+}
+
+// ── ANALYSIS ───────────────────────────────────────────
+async function runAnalysis() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) { showErr('Please enter your Anthropic API key first.'); return; }
+  if (!documentText) { showErr('Please upload a document or load a URL first.'); return; }
+
+  showErr('');
+  showState('loading');
+  setMsg('Sending document to AI audit engine…');
+  document.getElementById('runBtn').disabled = true;
+
+  const company = document.getElementById('company').value.trim();
+  const period  = document.getElementById('period').value.trim();
+  const focus   = document.getElementById('focus').value.trim();
+
+  const prompt = `You are a Big 4 Senior Audit Partner AI. Analyze this ${filingType} filing under ${framework} standards.
+
+${company ? 'Company: ' + company : ''}
+${period  ? 'Period: '  + period  : ''}
+${focus   ? 'Specific audit focus: ' + focus : ''}
+
+DOCUMENT CONTENT:
+"""
+${documentText}
+"""
+
+Produce a comprehensive structured audit report in this EXACT format. Use the markers exactly as shown:
+
+[SECTION:1:Filing Identification]
+State the document type, company name (if found), fiscal period, auditor (if named), and CIK/ticker if present.
+[/SECTION]
+
+[SECTION:2:Executive Audit Summary]
+2–3 sentence plain-language summary. Then state:
+AUDIT OPINION: [Unqualified / Qualified / Adverse / Disclaimer of Opinion]
+Reason for the opinion in 2–3 sentences.
+[/SECTION]
+
+[SECTION:3:Financial Health Scorecard]
+Rate each area as STRONG, MODERATE, or CONCERN with a one-line explanation:
+- Liquidity: [rating] — [reason]
+- Solvency: [rating] — [reason]
+- Profitability: [rating] — [reason]
+- Revenue Quality: [rating] — [reason]
+- Cash Flow Quality: [rating] — [reason]
+- Going Concern: [rating] — [reason]
+- Internal Controls: [rating] — [reason]
+[/SECTION]
+
+[SECTION:4:Key Findings & Red Flags]
+List each finding as:
+[CRITICAL/SIGNIFICANT/LOW] Finding title — description. Standard: ASC XXX / PCAOB AS XXXX.
+[/SECTION]
+
+[SECTION:5:Revenue Recognition Analysis]
+Assess compliance with ASC 606 (GAAP) or IFRS 15. Walk through the 5-step model. Note any deferred revenue trends or variable consideration issues.
+[/SECTION]
+
+[SECTION:6:Key Financial Ratios]
+Extract numbers from the document and compute:
+- Current Ratio: [value] ([interpretation])
+- Quick Ratio: [value]
+- Debt-to-Equity: [value]
+- Gross Margin %: [value]
+- Net Margin %: [value]
+- Operating Margin %: [value]
+- Return on Assets (ROA): [value]
+- Return on Equity (ROE): [value]
+- Interest Coverage: [value]
+- Altman Z-Score: [value] ([bankruptcy risk interpretation])
+Note: if data is insufficient for a ratio, state "Insufficient data."
+[/SECTION]
+
+[SECTION:7:Fraud & Misstatement Risk]
+Discuss Beneish M-Score factors, fraud triangle indicators, related-party transactions, off-balance-sheet items, and earnings quality.
+[/SECTION]
+
+[SECTION:8:Trends & Comparisons]
+Year-over-year or period-over-period trends: revenue growth, margin changes, working capital, CapEx vs depreciation.
+[/SECTION]
+
+[SECTION:9:Disclosure Quality]
+Assess footnote adequacy, MD&A quality, contingent liabilities (ASC 450 / IAS 37), subsequent events (ASC 855 / IAS 10).
+[/SECTION]
+
+[SECTION:10:Management Letter Recommendations]
+Numbered prioritized list of actionable recommendations for management.
+[/SECTION]
+
+[SECTION:11:Formal Auditor's Opinion]
+Write a formal audit opinion paragraph in standard Big 4 audit report language, citing the applicable framework and standards.
+[/SECTION]
+
+Be precise, cite specific ASC/IAS codes, and extract real numbers from the document wherever possible.`;
+
+  try {
+    setMsg('AI audit engine analyzing… (may take 30–60 seconds)');
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-5',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(()=>({}));
+      throw new Error(err.error?.message || 'API error ' + resp.status);
+    }
+
+    const data = await resp.json();
+    const text = data.content?.find(b => b.type === 'text')?.text || '';
+    if (!text) throw new Error('Empty response from API.');
+
+    renderReport(text, company, period);
+    showState('report');
+  } catch(err) {
+    showErr('Analysis failed: ' + err.message);
+    showState('welcome');
+  } finally {
+    document.getElementById('runBtn').disabled = false;
+  }
+}
+
+// ── RENDER REPORT ──────────────────────────────────────
+function renderReport(raw, company, period) {
+  const container = document.getElementById('reportState');
+
+  // Parse sections
+  const sectionDefs = [
+    [1, 'Filing Identification'],
+    [2, 'Executive Audit Summary'],
+    [3, 'Financial Health Scorecard'],
+    [4, 'Key Findings & Red Flags'],
+    [5, 'Revenue Recognition Analysis'],
+    [6, 'Key Financial Ratios'],
+    [7, 'Fraud & Misstatement Risk'],
+    [8, 'Trends & Comparisons'],
+    [9, 'Disclosure Quality'],
+    [10,'Management Letter Recommendations'],
+    [11,'Formal Auditor\'s Opinion'],
+  ];
+
+  // Extract opinion for banner
+  const opinionMatch = raw.match(/AUDIT OPINION:\s*([^\n]+)/i);
+  const opinion = opinionMatch ? opinionMatch[1].trim() : 'See report';
+
+  // Score badges from section 3
+  const scoreMap = extractScores(raw);
+
+  let html = '';
+
+  // Banner
+  html += `<div class="report-banner">
+    <div class="rb-seal">📋</div>
+    <div class="rb-info">
+      <h2>${escHtml(company || 'Financial Statement')} — Audit Report</h2>
+      <p>${escHtml(filingType)} · ${escHtml(period || new Date().getFullYear()+'')} · ${escHtml(framework)} FRAMEWORK</p>
+    </div>
+    <div class="rb-badge">CONFIDENTIAL</div>
+  </div>`;
+
+  // Actions
+  html += `<div class="actions-row">
+    <button class="action-btn primary" onclick="window.print()">🖨️ Print Report</button>
+    <button class="action-btn" onclick="exportTxt()">💾 Export TXT</button>
+    <button class="action-btn" onclick="copyAll()">📋 Copy All</button>
+  </div>`;
+
+  // Score cards
+  html += `<div class="score-row">
+    <div class="score-card ${colorClass(scoreMap.Liquidity)}">
+      <div class="sc-label">LIQUIDITY</div>
+      <div class="sc-val">${scoreMap.Liquidity||'—'}</div>
+      <div class="sc-sub">Current & Quick</div>
+    </div>
+    <div class="score-card ${colorClass(scoreMap.Solvency)}">
+      <div class="sc-label">SOLVENCY</div>
+      <div class="sc-val">${scoreMap.Solvency||'—'}</div>
+      <div class="sc-sub">Debt structure</div>
+    </div>
+    <div class="score-card ${colorClass(scoreMap.Profitability)}">
+      <div class="sc-label">PROFITABILITY</div>
+      <div class="sc-val">${scoreMap.Profitability||'—'}</div>
+      <div class="sc-sub">Margins & returns</div>
+    </div>
+    <div class="score-card ${colorClass(scoreMap['Going Concern']||scoreMap.GoingConcern)}">
+      <div class="sc-label">GOING CONCERN</div>
+      <div class="sc-val">${scoreMap['Going Concern']||scoreMap.GoingConcern||'—'}</div>
+      <div class="sc-sub">ASC 205-40</div>
+    </div>
+  </div>`;
+
+  // Sections
+  sectionDefs.forEach(([num, title]) => {
+    const content = extractSection(raw, num);
+    const formatted = formatContent(content, num);
+    html += `
+    <div class="rep-section" id="sec-${num}">
+      <div class="rep-sec-head" onclick="toggleSec(${num})">
+        <div class="rep-sec-num">${num}</div>
+        <div class="rep-sec-title">${title}</div>
+        <div class="rep-sec-arrow ${num <= 4 ? 'open' : ''}" id="arrow-${num}">▼</div>
+      </div>
+      <div class="rep-sec-body ${num <= 4 ? 'visible' : ''}" id="body-${num}">
+        ${formatted}
+      </div>
+    </div>`;
+  });
+
+  container.innerHTML = html;
+
+  // Store raw text for export
+  container.dataset.raw = raw;
+  container.dataset.company = company;
+  container.dataset.period = period;
+}
+
+function toggleSec(num) {
+  const body  = document.getElementById('body-' + num);
+  const arrow = document.getElementById('arrow-' + num);
+  const open  = body.classList.toggle('visible');
+  arrow.classList.toggle('open', open);
+}
+
+function extractSection(raw, num) {
+  const re = new RegExp('\\[SECTION:' + num + ':[^\\]]+\\]([\\s\\S]*?)\\[/SECTION\\]', 'i');
+  const m  = raw.match(re);
+  return m ? m[1].trim() : '(No data extracted for this section.)';
+}
+
+function extractScores(raw) {
+  const map = {};
+  const re  = /- ([\w\s]+):\s*(STRONG|MODERATE|CONCERN)/gi;
+  let m;
+  while ((m = re.exec(raw)) !== null) {
+    map[m[1].trim()] = m[2].toUpperCase();
+  }
+  return map;
+}
+
+function colorClass(val) {
+  if (!val) return '';
+  val = val.toUpperCase();
+  if (val === 'STRONG')   return 'green';
+  if (val === 'MODERATE') return 'amber';
+  if (val === 'CONCERN')  return 'red';
+  return '';
+}
+
+function formatContent(text, secNum) {
+  // Apply badge replacements
+  let html = escHtml(text)
+    .replace(/\[CRITICAL\]/g,    '<span class="badge-critical">CRITICAL</span>')
+    .replace(/\[SIGNIFICANT\]/g, '<span class="badge-significant">SIGNIFICANT</span>')
+    .replace(/\[LOW\]/g,         '<span class="badge-low">LOW</span>')
+    .replace(/STRONG/g,   '<span class="badge-strong">STRONG</span>')
+    .replace(/MODERATE/g, '<span class="badge-moderate">MODERATE</span>')
+    .replace(/CONCERN/g,  '<span class="badge-concern">CONCERN</span>')
+    .replace(/Unqualified/g,         '<span class="opinion-clean">Unqualified ✅</span>')
+    .replace(/Qualified(?! opinion)/g,'<span class="opinion-qualified">Qualified ⚠️</span>')
+    .replace(/Adverse/g,             '<span class="opinion-adverse">Adverse ❌</span>')
+    .replace(/Disclaimer of Opinion/g,'<span class="opinion-disclaimer">Disclaimer 🚫</span>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+  // For ratio section, try to make a table
+  if (secNum === 6) {
+    const rows = html.split('\n').filter(l => l.match(/^- .+:/));
+    if (rows.length > 3) {
+      let table = '<table class="ratio-table"><thead><tr><th>RATIO</th><th>VALUE</th><th>INTERPRETATION</th></tr></thead><tbody>';
+      rows.forEach(row => {
+        const m = row.match(/^- ([^:]+):\s*([^\(]+)\s*(\([^)]*\))?/);
+        if (m) {
+          table += `<tr>
+            <td class="ratio-name">${m[1].trim()}</td>
+            <td class="ratio-val">${m[2].trim()}</td>
+            <td>${m[3] ? m[3].slice(1,-1) : ''}</td>
+          </tr>`;
+        }
+      });
+      table += '</tbody></table>';
+      // Replace ratio lines with table
+      html = html.replace(/^- .+:.+$/gm, '').replace(/\n{3,}/g, '\n');
+      html = table + '<br>' + html;
+    }
+  }
+
+  // Convert newlines to paragraphs
+  const paras = html.split(/\n\n+/).filter(p => p.trim());
+  return paras.map(p => {
+    const lines = p.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length === 1 && !lines[0].startsWith('-') && !lines[0].startsWith('•')) {
+      return '<p>' + lines[0] + '</p>';
+    }
+    const isList = lines.some(l => l.startsWith('-') || l.startsWith('•') || /^\d+\./.test(l));
+    if (isList) {
+      const isOrdered = lines.some(l => /^\d+\./.test(l));
+      const tag = isOrdered ? 'ol' : 'ul';
+      const items = lines.map(l => '<li>' + l.replace(/^[-•]\s*|\d+\.\s*/, '') + '</li>').join('');
+      return '<' + tag + '>' + items + '</' + tag + '>';
+    }
+    return '<p>' + lines.join('<br>') + '</p>';
+  }).join('');
+}
+
+// ── EXPORT ────────────────────────────────────────────
+function exportTxt() {
+  const raw = document.getElementById('reportState').dataset.raw || '';
+  const company = document.getElementById('reportState').dataset.company || 'report';
+  const blob = new Blob([raw], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'FinAudit-' + company.replace(/\s+/g,'-') + '-' + Date.now() + '.txt';
+  a.click();
+}
+function copyAll() {
+  const raw = document.getElementById('reportState').dataset.raw || '';
+  navigator.clipboard.writeText(raw).then(() => alert('Report copied to clipboard!'));
+}
+
+// Optionally load PDF.js for better PDF reading
+(function() {
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  s.onload = function() {
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  };
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>
